@@ -13,50 +13,59 @@ function parseAndPrintTranscript(pdfPath) {
       let capturingCourses = false;
       let capturingCurrentCourses = false;
 
-      // First Pass: Parse Academic History
-      lines.forEach((line) => {
+      let collectNextLineForKey = null;
+
+      lines.forEach((line, index) => {
         line = line.trim();
 
-        // Capture student info until the first term line
-        if (
-          /^(Name|Student Number|Birth Date|Admit Semester|Admit Type|Level|Faculty|Program\(s\))/.test(
-            line
-          )
-        ) {
+        // Check if the previous line indicated a key requiring next line's continuation
+        if (collectNextLineForKey) {
+          studentInfo[collectNextLineForKey] = line.split(":")[1]?.trim();
+          collectNextLineForKey = null; // Reset
+        }
+
+        // Capture student info
+        if (/^(Name|Student Number|Birth Date|Admit Semester|Admit Type|Level|Faculty|Program\(s\))/.test(line)) {
           let [key, value] = line.split(":").map((part) => part.trim());
-          if (key !== "Admit Semester") {
+          if (value) {
+            // Direct capture if the line contains a colon followed by information
             studentInfo[
               key.toLowerCase().replace(/\(s\)/, "s").replace(/\s/g, "_")
             ] = value;
+          } else {
+            // If value is missing, prepare to capture it from the next line
+            collectNextLineForKey = key.toLowerCase().replace(/\(s\)/, "s").replace(/\s/g, "_");
           }
-        } else if (
-          /^(Fall|Spring|Summer)\s\d{4}-\d{4}/.test(line) &&
-          !line.includes("Admit Semester")
-        ) {
+        }
+
+        // Check for course terms and capture courses
+        if (/^(Fall|Spring|Summer)\s\d{4}-\d{4}/.test(line) && !line.includes("Admit Semester")) {
           capturingCourses = true;
           currentTerm = { term: line.trim(), courses: [] };
         } else if (capturingCourses) {
           if (/^Standing:/.test(line)) {
             academicHistory.push(currentTerm);
             capturingCourses = false;
-          } else if (!line.startsWith("Faculty:")) {
+          } else if (!line.startsWith("Courses") && !line.startsWith("Faculty:") && !line.startsWith("Page")) {
             let course = parseCourseLine(line);
             if (course) currentTerm.courses.push(course);
           }
+          
         }
       });
 
-      // Second Pass: Parse Current Courses
-      const coursesInProgressIndex = lines.findIndex((line) =>
-        /COURSES IN PROGRESS/.test(line)
-      );
+      // Capture Current Courses in Progress
+      const coursesInProgressIndex = lines.findIndex(line => /COURSES IN PROGRESS/.test(line));
+
       if (coursesInProgressIndex !== -1) {
         for (let i = coursesInProgressIndex + 1; i < lines.length; i++) {
           let line = lines[i].trim();
 
           if (/^(Fall|Spring|Summer)\s\d{4}-\d{4}/.test(line)) {
-            currentCourses.term = line;
+
             capturingCurrentCourses = true;
+            currentCourses.term = line;
+
             continue;
           }
 
@@ -69,7 +78,9 @@ function parseAndPrintTranscript(pdfPath) {
         }
       }
 
-      // Combine into final JSON object
+
+      // Combine all information into the final transcript object
+
       const transcript = {
         student_info: studentInfo,
         academic_history: academicHistory,
@@ -167,4 +178,13 @@ function parseCourseLine(line) {
   };
 }
 
-module.exports = parseAndPrintTranscript;
+
+/*parseAndPrintTranscript("C:\\Users\\Public\\PARA-backend\\Transcript.pdf")
+.then(transcript => {
+    console.log("Transcript Object:", JSON.stringify(transcript, null, 2));
+})
+.catch(error => {
+    console.error(error);
+});*/
+module.exports = {parseAndPrintTranscript};
+
