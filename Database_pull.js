@@ -175,15 +175,58 @@ async function run() {
         
     try {
         const result = await courseCategoryAlgorithm(formattedTerm, path);
-        console.log("Result:", result);
+        //console.log("Result:", result);
     } catch (error) {
         console.error("Failed to execute course category algorithm:", error);
     }
 }
 
-
+//run();
 module.exports = {courseCategoryAlgorithm,formatAdmitSemester};
 
 
-
+/*Category Counts: {      
+  freeElectives: 0,     
+  coreElectives: 9,     
+  requiredCourses: 11,  
+  universityCourses: 17,
+  areaElectives: 1,     
+  basicScienceECTS: 55, 
+  engineeringECTS: 48   
+}
+Remaining Credits: {
+  areaElectives: 6, 
+  freeElectives: 15,
+  coreElectives: 8,
+  requiredCourses: 0,
+  universityCourses: 0,
+  basicScienceECTS: 5,
+  engineeringECTS: 42
+}
+Recommendations by Pool: {
+  areaElectives: [
+    'ENS208',  'CS48001',
+    'IE305',   'MATH202',
+    'MATH301', 'MATH311',
+    'CS414',   'CS438',
+    'CS442',   'CS48004'
+  ],
+  freeElectives: [
+    'ENS201', 'ENS202',
+    'ENS204', 'ENS205',
+    'ME307',  'NS201',
+    'NS207',  'PHYS303',
+    'EE307',  'ENS207'
+  ],
+  coreElectives: [
+    'ENS211', 'CS302',
+    'CS305',  'CS400',
+    'CS401',  'CS403',
+    'CS405',  'CS406',
+    'CS411',  'CS419'
+  ],
+  requiredCourses: [],
+  universityCourses: []
+}
+*/ 
 
