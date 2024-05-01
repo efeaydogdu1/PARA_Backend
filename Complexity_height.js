@@ -54,16 +54,28 @@ async function calculateCourseHeights() {
 
     return heights;
 }
-async function main() {
+
+async function writeCourseHeights() {
     try {
         const courseHeights = await calculateCourseHeights();
-        console.log("Course Heights:", courseHeights);
-        // Other logic using the course heights
+        await initFirebaseHandler("courseHeights");
+        for (const [courseCode, height] of Object.entries(courseHeights)) {
+            await FirebaseHandler.create({
+                courseCode: courseCode,
+                Height: height
+            });
+        }
+        console.log("Course heights written to Firestore successfully!");
     } catch (error) {
-        console.error("Failed to calculate course heights:", error);
+        console.error("Failed to write course heights:", error);
     }
 }
 
-//main();
+// Function to invoke the writing process
+async function main() {
+    await writeCourseHeights();
+}
 
-module.exports = { calculateCourseHeights };
+main();
+
+//module.exports = { calculateCourseHeights };
