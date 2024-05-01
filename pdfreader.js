@@ -12,6 +12,7 @@ function parseAndPrintTranscript(pdfPath) {
       let currentCourses = { term: "", courses: [] };
       let capturingCourses = false;
       let capturingCurrentCourses = false;
+
       let collectNextLineForKey = null;
 
       lines.forEach((line, index) => {
@@ -55,13 +56,16 @@ function parseAndPrintTranscript(pdfPath) {
 
       // Capture Current Courses in Progress
       const coursesInProgressIndex = lines.findIndex(line => /COURSES IN PROGRESS/.test(line));
+
       if (coursesInProgressIndex !== -1) {
         for (let i = coursesInProgressIndex + 1; i < lines.length; i++) {
           let line = lines[i].trim();
 
           if (/^(Fall|Spring|Summer)\s\d{4}-\d{4}/.test(line)) {
+
             capturingCurrentCourses = true;
             currentCourses.term = line;
+
             continue;
           }
 
@@ -74,7 +78,9 @@ function parseAndPrintTranscript(pdfPath) {
         }
       }
 
+
       // Combine all information into the final transcript object
+
       const transcript = {
         student_info: studentInfo,
         academic_history: academicHistory,
@@ -87,6 +93,7 @@ function parseAndPrintTranscript(pdfPath) {
       throw new Error("Error processing PDF:", error);
     });
 }
+
 function parseCurrentCourseLine(line) {
   line = line.trim(); // Trim the line to remove any leading/trailing whitespace
 
@@ -171,6 +178,7 @@ function parseCourseLine(line) {
   };
 }
 
+
 /*parseAndPrintTranscript("C:\\Users\\Public\\PARA-backend\\Transcript.pdf")
 .then(transcript => {
     console.log("Transcript Object:", JSON.stringify(transcript, null, 2));
@@ -179,3 +187,4 @@ function parseCourseLine(line) {
     console.error(error);
 });*/
 module.exports = {parseAndPrintTranscript};
+
