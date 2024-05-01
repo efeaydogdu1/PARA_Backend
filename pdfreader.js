@@ -188,3 +188,4 @@ function parseCourseLine(line) {
 });*/
 module.exports = {parseAndPrintTranscript};
 
+//PDF reader işte transcript okuyor
