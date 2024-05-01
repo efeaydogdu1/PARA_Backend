@@ -185,7 +185,7 @@ async function run() {
 }
 
 
-module.exports = {parseAndPrintTranscript,parseAndPrintTranscript,formatAdmitSemester};
+module.exports = {courseCategoryAlgorithm,parseAndPrintTranscript,formatAdmitSemester};
 
 
 
