@@ -26,8 +26,8 @@ async function getAllCourses() {
 function countCoursesInCategories(transcript, degreeRequirement, creditsOfCoursesData) {
     let counts = {
         
-        freeElectives: 0,
-        coreElectives: 0,
+        freeElectives: -5,
+        coreElectives: -2,
         requiredCourses: 0,
         universityCourses: 0,
         areaElectives: -2,
@@ -79,44 +79,48 @@ function calculateRemainingCredits(counts, degreeRequirement) {
         engineeringECTS: Math.max(0, degreeRequirement.engineeringMinECTS - counts.engineeringECTS)
     };
 }
-function recommendCourses(degreeRequirements, remainingCredits, creditsOfCoursesData,allCoursesData, transcript) {
-    // Determine which pool has the most remaining credits to fulfill
-    let pools = ['areaElectives', 'freeElectives', 'coreElectives', 'requiredCourses', 'universityCourses'];
-    let highestPool = pools.reduce((a, b) => remainingCredits[b] > remainingCredits[a] ? b : a);
+function recommendCourses(degreeRequirements, remainingCredits, creditsOfCoursesData, allCoursesData, transcript) {
+    // Extract just the course codes from the transcript into a Set for easier checking
+    let takenCourseCodes = new Set(transcript.academic_history.flatMap(term => term.courses.map(course => course.code))
+                                    .concat(transcript.current_courses.courses.map(course => course.code)));
 
-    // Compile a list of courses already taken to avoid recommending them
-    let takenCourses = new Set(transcript.academic_history.flatMap(term => term.courses.map(course => course.code))
-                               .concat(transcript.current_courses.courses.map(course => course.code)));
+    let recommendedCourses = [];
 
-    // Filter out courses from the selected pool that haven't been taken yet
-    let potentialCourses = degreeRequirements[highestPool].filter(course => !takenCourses.has(course));
+    // Go through each pool and get potential courses
+    for (const pool of ['areaElectives', 'freeElectives', 'coreElectives', 'requiredCourses', 'universityCourses']) {
+        if (remainingCredits[pool] > 0) {
+            let potentialCourses = degreeRequirements[pool].filter(course => !takenCourseCodes.has(course));
 
-    // Further filter to find courses that could reduce remaining basic science or engineering credits, if needed
-    let recommendedCourses = potentialCourses
-        .filter(courseCode => {
-            // Check if the course has prerequisites in allCoursesData
-            let courseInAllCourses = allCoursesData.find(c => c.courseCode === courseCode);
-            let coursePrerequisites = courseInAllCourses?.preRequisites || [];
-            return coursePrerequisites.every(prerequisite => takenCourses.has(prerequisite));
-        })
-        .filter(courseCode => {
-            // Check if the course helps in reducing remaining credits
-            let courseData = creditsOfCoursesData.find(c => c.courseCode === courseCode || c.previousCourseCode === courseCode);
-            return courseData && (
-                (remainingCredits.basicScienceECTS > 0 && courseData.after2013basicScienceECTS > 0) ||
-                (remainingCredits.engineeringECTS > 0 && courseData.after2013engineeringECTS > 0)
-            );
-        })
-        .slice(0,30); // Limit to 5 recommendations for brevity
+            // Now, filter based on prerequisites and credit reduction
+            let poolRecommendedCourses = potentialCourses
+                .filter(courseCode => {
+                    const courseDetails = allCoursesData.find(course => course.courseCode === courseCode);
+                    if (courseDetails && courseDetails.preRequisities) {
+                        // Check if all prerequisites are met
+                        return courseDetails.preRequisities.every(prerequisite => takenCourseCodes.has(prerequisite));
+                    }
+                    return true; // If there are no prerequisites, the course is eligible
+                })
+                .filter(courseCode => {
+                    const courseData = creditsOfCoursesData.find(c => c.courseCode === courseCode || c.previousCourseCode === courseCode);
+                    // Check if the course helps in reducing remaining credits
+                    return courseData && (
+                        (remainingCredits.basicScienceECTS > 0 && courseData.after2013basicScienceECTS > 0) ||
+                        (remainingCredits.engineeringECTS > 0 && courseData.after2013engineeringECTS > 0)
+                    );
+                });
 
-    return {
-        highestPool: highestPool,
-        recommendedCourses: recommendedCourses
-    };
+            recommendedCourses = [...recommendedCourses, ...poolRecommendedCourses];
+        }
+    }
+
+    // Slice to get a limited number of recommendations
+    return recommendedCourses.slice(0, 30);
 }
 
+
 // The main algorithm that ties everything together
-async function courseCategoryAlgorithm(firstAdmitTerm) {
+async function courseCategoryAlgorithm(firstAdmitTerm,path) {
     try {
         // Initialize the Firebase handler for different collections
         await initFirebaseHandler("degreeRequirements");
@@ -130,7 +134,7 @@ async function courseCategoryAlgorithm(firstAdmitTerm) {
         const allCoursesData = await getAllCourses();
         
         // Read the transcript
-        const transcript = await pdfReader.parseAndPrintTranscript('C:\\Users\\Public\\PARA-backend\\Transcript.pdf');
+        const transcript = await pdfReader.parseAndPrintTranscript(path);
 
         // Process the counts and remaining credits
         const counts = countCoursesInCategories(transcript, degreeRequirements, creditsOfCoursesData);
@@ -155,17 +159,33 @@ async function courseCategoryAlgorithm(firstAdmitTerm) {
         throw error;
     }
 }
+function formatAdmitSemester(admitSemester) {
+    // Regex to match the pattern "Fall 2019-2020"
+    // It captures the season part and the year range part separately
+    // This regex will ensure spaces around the hyphen are properly managed.
+    const regex = /(\w+)\s(\d{4})-(\d{4})/;
+
+    // Replace and reformat the string using the captured groups
+    // The $2 and $3 refer to the captured year parts, and $1 refers to the semester part.
+    // We're adding spaces around the hyphen for correct formatting.
+    return admitSemester.replace(regex, '$2 - $3 / $1');
+}
+const path = 'C:\\Users\\Public\\PARA-backend\\Transcript.pdf';
 // Execute the function with the specific term
-courseCategoryAlgorithm('2019 - 2020 / Fall')
-    .then(result => {
+async function run() {
+    const transcript = await pdfReader.parseAndPrintTranscript(path);
+    const formattedTerm = formatAdmitSemester(transcript.student_info.admit_semester);
+        
+    try {
+        const result = await courseCategoryAlgorithm(formattedTerm, path);
         console.log("Result:", result);
-    })
-    .catch(error => {
-        console.error("Failed to calculate course counts:", error);
-    });
+    } catch (error) {
+        console.error("Failed to execute course category algorithm:", error);
+    }
+}
 
 
-
+module.exports = {parseAndPrintTranscript,parseAndPrintTranscript,formatAdmitSemester};
 
 
 
