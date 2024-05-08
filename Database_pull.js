@@ -30,6 +30,20 @@ async function getCourseHeights() {
     });
     return heightsMap;
 }
+
+async function getCourseCapacities() {
+    await initFirebaseHandler("capacityStatus");
+    const capacities = await FirebaseHandler.readAll();
+    const capacityMap = {};
+    capacities.forEach(doc => {
+        capacityMap[doc.courseCode] = {
+            capacity: doc.capacity,
+            taken: doc.taken,
+            fullness: doc.taken / doc.capacity
+        };
+    });
+    return capacityMap;
+}
 // Counts how many courses of each type a student has taken based on their transcript and degree requirements
 function countCoursesInCategories(transcript, degreeRequirement, creditsOfCoursesData) {
     let counts = {
@@ -92,7 +106,10 @@ async function recommendCourses(degreeRequirements, remainingCredits, creditsOfC
                                     .concat(transcript.current_courses.courses.map(course => course.code)));
 
     const courseHeights = await getCourseHeights(); // Fetch course heights for scoring
+    const courseCapacities = await getCourseCapacities(); // Fetch current capacities and professor info for scoring
     let recommendationsByPool = {};
+
+    const favoredProfessors = new Set(["Professor Name1", "Professor Name2"]); // Set of favored professors
 
     for (const pool of ['areaElectives', 'freeElectives', 'coreElectives', 'requiredCourses', 'universityCourses']) {
         if (remainingCredits[pool] > 0) {
@@ -112,14 +129,25 @@ async function recommendCourses(degreeRequirements, remainingCredits, creditsOfC
                         (remainingCredits.engineeringECTS > 0 && courseData.after2013engineeringECTS > 0)
                     );
                 })
-                .map(courseCode => ({ // Use map here to attach height for sorting
-                    courseCode,
-                    score: (courseHeights[courseCode] || 0) // Incorporate course height into score
-                }))
-                .sort((a, b) => b.score - a.score) // Sort by score descending, which is by height here
-                .map(course => course.courseCode); // Convert back to course codes for output
+                .map(courseCode => {
+                    const heightScore = courseHeights[courseCode] || 0;
+                    const capacityData = courseCapacities[courseCode] || { capacity: 1, taken: 0, professor: "" };
+                    const fullnessFactor = capacityData.taken / capacityData.capacity;
+                    const isFavored = favoredProfessors.has(capacityData.professor);
+                    const riskAdjustment = isFavored ? 0.2 * (1 - fullnessFactor) : 0.1 * (1 - fullnessFactor);
+                    const score = heightScore + riskAdjustment; // Combine height with risk factor
 
-            recommendationsByPool[pool] = poolRecommendedCourses.slice(0, 10); // Limit to top 5 recommendations per pool
+                    return {
+                        courseCode,
+                        score: score,
+                        section: capacityData.section,
+                        professor: capacityData.professor // Including professor's name
+                    };
+                })
+                .sort((a, b) => b.score - a.score) // Sort by score descending
+                .map(item => `${item.courseCode} (Section: ${item.section}, Prof: ${item.professor})`); // Convert back to course codes for output
+
+            recommendationsByPool[pool] = poolRecommendedCourses.slice(0, 10); // Limit to top recommendations per pool
         } else {
             recommendationsByPool[pool] = []; // No recommendations if pool credit requirement is met
         }
@@ -205,25 +233,40 @@ Remaining Credits: {
 }
 Recommendations by Pool: {
   areaElectives: [
-    'ENS208',  'CS48001',
-    'IE305',   'MATH202',
-    'MATH301', 'MATH311',
-    'CS414',   'CS438',
-    'CS442',   'CS48004'
+    'ENS208 (Section: undefined, Prof: undefined)',
+    'MATH301 (Section: undefined, Prof: undefined)',
+    'CS48001 (Section: undefined, Prof: undefined)',
+    'IE305 (Section: undefined, Prof: undefined)',
+    'MATH311 (Section: undefined, Prof: undefined)',
+    'MATH202 (Section: undefined, Prof: undefined)',
+    'ENS222 (Section: undefined, Prof: )',
+    'ME407 (Section: undefined, Prof: )',
+    'MATH305 (Section: undefined, Prof: undefined)',
+    'CS442 (Section: undefined, Prof: undefined)'
   ],
   freeElectives: [
-    'ENS201', 'ENS202',
-    'ENS204', 'ENS205',
-    'ME307',  'NS201',
-    'NS207',  'PHYS303',
-    'EE307',  'ENS207'
+    'ME307 (Section: undefined, Prof: undefined)',
+    'PHYS303 (Section: undefined, Prof: undefined)',
+    'NS201 (Section: undefined, Prof: undefined)',
+    'ENS204 (Section: undefined, Prof: undefined)',
+    'ENS201 (Section: undefined, Prof: undefined)',
+    'ENS205 (Section: undefined, Prof: undefined)',
+    'NS207 (Section: undefined, Prof: undefined)',
+    'ENS202 (Section: undefined, Prof: undefined)',
+    'IE407 (Section: undefined, Prof: )',
+    'IE412 (Section: undefined, Prof: )'
   ],
   coreElectives: [
-    'ENS211', 'CS302',
-    'CS305',  'CS400',
-    'CS401',  'CS403',
-    'CS405',  'CS406',
-    'CS411',  'CS419'
+    'ENS211 (Section: undefined, Prof: undefined)',
+    'CS305 (Section: undefined, Prof: undefined)',
+    'CS302 (Section: undefined, Prof: undefined)',
+    'CS403 (Section: undefined, Prof: undefined)',
+    'CS400 (Section: undefined, Prof: undefined)',
+    'EE308 (Section: undefined, Prof: undefined)',
+    'CS411 (Section: undefined, Prof: undefined)',
+    'CS406 (Section: undefined, Prof: undefined)',
+    'CS445 (Section: undefined, Prof: undefined)',
+    'CS437 (Section: undefined, Prof: undefined)'
   ],
   requiredCourses: [],
   universityCourses: []
