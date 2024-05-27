@@ -1,6 +1,43 @@
 const FirebaseHandler = require("./firebase.js");
 const pdfReader = require("./pdfreader.js");
+const admin = require('firebase-admin');
+const path = require('path');
+const os = require('os');
+const key = {
+  "type": "service_account",
+  "project_id": "para-73633",
+  "private_key_id": "efa95141de69bfdce3e5a5427b080abf45437939",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEugIBADANBgkqhkiG9w0BAQEFAASCBKQwggSgAgEAAoIBAQC5t5s50rPIs8cc\n8x7EpAoVpMZ2Cmja/Ii3iRzIrl3lN6fos97/36JlpOIVW9VYAuYQjOE0CW1RlGPq\nAnkEoR2RBZZQR0AR6Daz4NKaCAnHNKzTNi9qhxCLMbs343GUm+kr670gJzVXU42T\nDlW3nn5ynrMhJ1eGdWRkdSlfGVVtBMugHNtw9hbuP4Jm9B4/JvAX8FKVYZO6GenA\nHPFvfNRFfgD8084tBR8+WtyrPpJ0aOyfnZILDadNd0jbwA16KIz/gpVehyF3wHA8\n2PbwKpaq2IFO1cjdGZ8KecXUc6hXzqDjejcsIBmez6oXXgoqlCBmYpS+9dfompdd\nN6GqRsAXAgMBAAECgf8wmt0FRR/IZ0S1Tuu+izAYegd23UKUDYO6hSgDXZ81XluT\ni3/Rd7YI5B5HeMFdR2Tu7/AArnbt4uhDVmJV09TpH403dW5PQXcPnMeBiJkGicKx\nhHzkZHTv+RQGjIAtZKCh3hChWaGcOUHUOuw0Ikb1uJMpGiLODes4X3F0cizpWuSJ\nyQLv4sw2GePSEcxXAKIusplJkQq98oNRtTFFyDHwVas7OrtTTbKznmAb7MqBruFg\nmhrmjXTJHtI8ERoQJT8XERPlWu83kkMYT4Z5HegoGSkdU4fc8ZLYVk1p6cYCu+D8\nGh8+xXBBc+ACZH3iHHkJ1H3PmW6B9I5DamPscYECgYEA/QlQNERrkLe0+bOzjIM4\nBHqzZtfQ9/E34rsIaj5dPolG8sW1XbraEg9zx7/4Xi1mVcxlGBTbCnIxnaHzzvGm\nXs6kPgRC2wwTJXtfxVV47Gx0PXCB01GkFo/YloOefVoiLRs/G9/DVAf1ML/up7o0\nCdsj1DTs9EebH/jNmMN4+MECgYEAu+RyrA5dr98MDrsMiIczzFcyS1HysYf3+on3\n069PeDwZ/MThciWdlrc+qvlo+VCpOuR7aMIDZhJh6tMPvCBmQGUqHi6VKXzZT9oI\nBJRrb+KrpmYFE2NwCzJfqolSis3iXe6DS6Smk9CVMszcRqOQZjYHPC38f+B5fjLa\nKf5dVtcCgYA9Zqgmtr+fU2S//wI/w4uxUpD8ELytncQg6Z/GIDICPc+Qk7dJ8lB+\nd29x9jxvpfaiNUIG0PDCHSm7BZSjD/J+KQij3+bVPp3ax5Ba0z3PqRWf3xAx1irK\nKse05mVsJ5YJegYbXnYIixHNbZWc78s25Q1RrjIdqM6UuIwzWKOfQQKBgHikVnzj\nPISQUs2ijImdRkUON9zk4U/cXf0gWWAyUHSDIqyKPbdtL6J2RmbBfgWXJRILYrIA\n4O3JH9YHbzL8Gqt+SWzXvC7HW0FKXZuTMOjGQjC1kMzCLE8EKSj2w2kciRyG6QbI\n0axXYXUc1NMGctEuH7ckT9xL5baCMFKGYKhBAoGAJtwPWinrzHCh3VB6kqWVxEus\nF/qBl9mZ3N+Pp7NZPVe0G7o/NrPJTmTQnKn/uVBcilaY3QTLlsCUjKuoKdpKEg0l\nJb32AsNhUidJbscaZjwQtBtwmzPoxEYSy/WrYCd6ONfvqXubeBSF5nYq9r9giOeJ\nex6jIZ7NHpXli1+m12s=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-ocnda@para-73633.iam.gserviceaccount.com",
+  "client_id": "105056302558945412386",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-ocnda%40para-73633.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+};
 
+
+
+const bucket = admin.storage().bucket('gs://para-73633.appspot.com');
+async function downloadFile(userID) {
+    try{
+        const downloadPath = 'transcript.pdf';
+        srcFilename = userID + '/transcript.pdf';
+        // Dosyayı indirme işlemi
+        await bucket
+            .file(srcFilename)
+            .download({ destination: downloadPath});
+
+        console.log(
+            'gs://${bucketName}/${srcFilename} -> ${srcFilename} olarak indirildi.'
+        );
+        return downloadPath;
+    }catch(error){
+        console.log('Hata bulundu', error);
+        return 'hata';
+    }
+}
 // Initializes the FirebaseHandler with the collection name
 async function initFirebaseHandler(collectionName) {
     await FirebaseHandler.get(collectionName);
@@ -195,22 +232,24 @@ function formatAdmitSemester(admitSemester) {
     // We're adding spaces around the hyphen for correct formatting.
     return admitSemester.replace(regex, '$2 - $3 / $1');
 }
-const path = 'C:\\Users\\Public\\PARA-backend\\Transcript.pdf';
+
+
 // Execute the function with the specific term
-async function run() {
+async function run(userID) {
+    const path = await downloadFile(userID);
     const transcript = await pdfReader.parseAndPrintTranscript(path);
     const formattedTerm = formatAdmitSemester(transcript.student_info.admit_semester);
         
     try {
         const result = await courseCategoryAlgorithm(formattedTerm, path);
-        //console.log("Result:", result);
+        return result;
     } catch (error) {
         console.error("Failed to execute course category algorithm:", error);
     }
 }
 
 //run();
-module.exports = {courseCategoryAlgorithm,formatAdmitSemester};
+module.exports = {run};
 
 
 /*Category Counts: {      
