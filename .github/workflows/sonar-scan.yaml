@@ -10,6 +10,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      sonarqube:
+        image: sonarqube:latest
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd="curl -f http://localhost:9000 || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -26,6 +37,11 @@ jobs:
     # - name: Run tests
     #   run: npm test
 
+    - name: Wait for SonarQube to be ready
+      run: |
+        echo "Waiting for SonarQube to be ready..."
+        while ! curl -s http://localhost:9000; do sleep 5; done
+
     - name: SonarQube Scan
       uses: sonarsource/sonarqube-scan-action@master
       with:
@@ -33,6 +49,6 @@ jobs:
         args: >
           -Dsonar.organization=my-org
           -Dsonar.projectKey=my-nodejs-project
+          -Dsonar.host.url=http://localhost:9000
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
